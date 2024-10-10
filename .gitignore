@@ -1,0 +1,4 @@
+*.swp
+test.db
+test.db.cache
+/__pycache__
