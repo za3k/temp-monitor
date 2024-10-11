@@ -21,6 +21,12 @@ GROUPS = {
     "inside": INSIDE,
 }
 
+ABOUT = """
+Temperature monitoring is via zigbee sensors running on battery.
+
+Source: https://github.com/za3k/temp-monitor
+""".strip()
+
 class Display():
     def __init__(self, sensors, report_dir, report_name):
         self.report_dir = report_dir
@@ -38,6 +44,7 @@ class Display():
                     current_temps,
                     hourly,
                     high_low,
+                    ABOUT
                 ]))
 
     def log(self, event):

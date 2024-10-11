@@ -1,0 +1,15 @@
+[Unit]
+Description=listen to temperature loggers on mqtt, write to database, write reports
+After=mosquitto.service
+
+[Service]
+Type=simple
+User=zachary
+WorkingDirectory=/var/local/temp-monitor
+TimeoutStartSec=0
+Restart=always
+RestartSec=10
+ExecStart=/var/local/temp-monitor/main.py
+
+[Install]
+WantedBy=multi-user.target
