@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import display
 import database
 import monitor
@@ -18,10 +19,10 @@ SENSORS=[
 ]
 
 if __name__ == "__main__":
-    db = database.Database(sensors=SENSORS, path="test.db")
-    state = state.State(db, path="test.db.cache")
+    db = database.Database(sensors=SENSORS, path="temps.db")
+    state = state.State(db, path="temps.db.cache")
     sensors = state.sensors()
-    display = display.Display(sensors)
+    display = display.Display(sensors, report_dir="/var/www/public/pub/status", report_name="house-temp.{unit}.txt")
     monitor = monitor.Monitor(sensors)
 
     try:

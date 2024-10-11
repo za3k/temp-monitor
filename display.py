@@ -3,6 +3,7 @@ import datetime
 import pytz
 import statistics
 import struct
+import os.path
 
 EPOCH = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
 TZ    = pytz.timezone('US/Eastern')
@@ -21,8 +22,9 @@ GROUPS = {
 }
 
 class Display():
-    def __init__(self, sensors):
-        pass
+    def __init__(self, sensors, report_dir, report_name):
+        self.report_dir = report_dir
+        self.report_name = report_name
 
     def update(self, state):
         for unit in ["c", "f"]:
@@ -30,7 +32,8 @@ class Display():
             high_low = self.high_low(state, unit)
             hourly = self.hourly(state, unit)
 
-            with open("/var/www/public/pub/status/zigbee_temp.{}.txt".format(unit), "w") as f:
+            path = os.path.join(self.report_dir, self.report_name.format(unit=unit))
+            with open(path, "w") as f:
                 f.write("\n-------------\n\n".join([
                     current_temps,
                     hourly,

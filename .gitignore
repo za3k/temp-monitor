@@ -1,4 +1,4 @@
 *.swp
-test.db
-test.db.cache
+*.db
+*.db.cache
 /__pycache__
