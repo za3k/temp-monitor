@@ -22,9 +22,7 @@ GROUPS = {
 }
 
 ABOUT = """
-Temperature monitoring is via zigbee sensors running on battery.
-
-Source: https://github.com/za3k/temp-monitor
+Code: https://github.com/za3k/temp-monitor
 """.strip()
 
 class Display():
