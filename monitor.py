@@ -29,7 +29,7 @@ class Monitor():
 
     def message2record(self, message, ts=None):
         if ts is None:
-            ts = datetime.datetime.utcnow()
+            ts = datetime.datetime.now(datetime.UTC)
         if message.topic not in self.topic2sensor: return
         i = self.topic2sensor[message.topic]
         payload = json.loads(message.payload)

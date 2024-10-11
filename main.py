@@ -2,6 +2,7 @@ import display
 import database
 import monitor
 import state
+import sys
 
 SENSORS=[
     {"mqtt_topic": "zigbee2mqtt/Temperature/Sensor01", "row_id": 1, "human_readable": "01 - Upstairs - Dining Room"},
@@ -23,12 +24,14 @@ if __name__ == "__main__":
     display = display.Display(sensors)
     monitor = monitor.Monitor(sensors)
 
-    monitor.start_background()
     try:
+        monitor.start_background()
+        display.update(state)
+        print("Loaded.", file=sys.stderr)
         for event in monitor.events():
             display.log(event)
-            db.write(*event)
-            state.update(event)
+            db.write_ts(*event)
+            state.update(*event)
             display.update(state)
     finally:
         monitor.close()

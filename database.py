@@ -26,9 +26,13 @@ An all-zero record indicates no data.
 """
 
 import json
+import math
 import os.path
+import datetime
 
 SENSOR_LENGTH = 67_376_800
+SENSOR_ROWS = 64 * 365 * 24 * int(60/5)
+EPOCH = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
 
 class Database():
     def __init__(self, sensors, path):
@@ -37,8 +41,6 @@ class Database():
             self.make_database(sensors, path)
         self.f = open(path, "r+b")
         self.metadata = self.get_all_metadata()
-        #print(self.path)
-        #print(self.metadata)
 
     def make_database(self, sensors, path):
         # Make a file
@@ -82,16 +84,48 @@ class Database():
 
         return md
 
+    def rownum2ts(self, i):
+        return EPOCH + datetime.timedelta(minutes=5*i)
+
+    def ts2rownum(self, ts):
+        ROW_SECONDS = 5 * 60
+        elapsed = ts - EPOCH
+        return math.floor(elapsed.total_seconds() / ROW_SECONDS)
+
+    def read_all_sensor(self, sensor):
+        # Iterate over all records for one sensor as (sensor, ts, record) tuples
+        # Records go from oldest to newest
+        self.f.seek(SENSOR_LENGTH*sensor + 100_000)
+        preload = self.f.read(SENSOR_LENGTH - 100_000)
+        for rownum, x in enumerate(preload[::10]):
+            if x != 0:
+                record = preload[rownum*10:rownum*10+10]
+                yield (sensor, self.rownum2ts(rownum), record)
+
     def read_all(self):
         # Iterate over all records as (ts, sensor, record) tuples
-        # Records go from oldest to newest
-        pass # TODO
+        # Records go from oldest to newest within each sensor
+        # Sensors may be grouped or interleaved.
+        # TODO: n-way merge, return interleaved
+        for sensor in range(self.count_sensors()):
+            yield from self.read_all_sensor(sensor)
 
-    def read(self, sensor, ts):
-        pass # TODO
+    def read_ts(self, sensor, ts):
+        return self.read_rownum(sensor, self.ts2rownum(ts))
+        
+    def read_rownum(self, sensor, rownum):
+        self.f.seek(SENSOR_LENGTH*sensor + 100_000 + rownum*10)
+        record = self.f.read(10)
+        if record != b'\0\0\0\0\0\0\0\0\0\0':
+            return (sensor, self.rownum2ts(rownum), record)
 
-    def write(self, sensor, ts, record10):
-        pass # TODO
+    def write_ts(self, sensor, ts, record10):
+        self.write_rownum(sensor, self.ts2rownum(ts), record10)
+
+    def write_rownum(self, sensor, rownum, record10):
+        self.f.seek(SENSOR_LENGTH*sensor + 100_000 + rownum*10)
+        assert len(record10) == 10
+        self.f.write(record10)
 
     def close(self):
         self.f.close()
