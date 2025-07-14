@@ -25,12 +25,14 @@ Voltage is in unknown integer units.
 An all-zero record indicates no data.
 """
 
+import io
 import json
 import math
 import os.path
 import datetime
 
 SENSOR_LENGTH = 67_376_800
+METADATA_LENGTH = 100_000 # Allocated space for json metadata (rest filled with zeros)
 SENSOR_ROWS = 64 * 365 * 24 * int(60/5)
 EPOCH = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
 
@@ -40,7 +42,23 @@ class Database():
         if not os.path.exists(path):
             self.make_database(sensors, path)
         self.f = open(path, "r+b")
+        if self.count_sensors() < len(sensors):
+            self.expand_database(sensors)
         self.metadata = self.get_all_metadata()
+
+    def expand_database(self, sensors):
+        old_sensors = self.count_sensors()
+        new_sensors = len(sensors) - old_sensors
+
+        # Filled it with zeros
+        self.f.seek(0, io.SEEK_END)
+        assert self.f.tell() == (old_sensors*SENSOR_LENGTH)
+        for i in range(new_sensors):
+            self.f.write(b'\0' * SENSOR_LENGTH)
+
+        # Write the metadata
+        for i in range(len(sensors)):
+            self.write_metadata(i, [1, sensors[i]])
 
     def make_database(self, sensors, path):
         # Make a file
@@ -54,12 +72,14 @@ class Database():
         for i in range(len(sensors)):
             self.write_metadata(i, [1, sensors[i]])
 
-    def write_metadata(self, n, jsons):
+    def write_metadata(self, n, json1):
+        jsons = [1, json1]
         md = "".join(json.dumps(j) + "\n" for j in jsons)
         md = md.encode('utf8')
-        assert len(md) < 100_000
+        assert len(md) < METADATA_LENGTH
         self.f.seek(SENSOR_LENGTH*n)
         self.f.write(md)
+        self.f.write(b'\0'*(METADATA_LENGTH - len(md)))
 
     def count_sensors(self):
         self.f.seek(0, os.SEEK_END)
@@ -72,7 +92,7 @@ class Database():
 
     def get_metadata(self, n):
         self.f.seek(SENSOR_LENGTH*n)
-        section = self.f.read(100_000)
+        section = self.f.read(METADATA_LENGTH)
         section = section.split(b'\n\0', 1)[0]
 
         # Assert the format is version 1
@@ -81,6 +101,9 @@ class Database():
         # Decode JSON objects
         parts = section.decode('utf8').split("\n")
         version, md = [json.loads(x) for x in parts]
+
+        assert md[0] == 1 and len(md) == 2
+        return md[1]
 
         return md
 
@@ -95,8 +118,8 @@ class Database():
     def read_all_sensor(self, sensor):
         # Iterate over all records for one sensor as (sensor, ts, record) tuples
         # Records go from oldest to newest
-        self.f.seek(SENSOR_LENGTH*sensor + 100_000)
-        preload = self.f.read(SENSOR_LENGTH - 100_000)
+        self.f.seek(SENSOR_LENGTH*sensor + METADATA_LENGTH)
+        preload = self.f.read(SENSOR_LENGTH - METADATA_LENGTH)
         for rownum, x in enumerate(preload[::10]):
             if x != 0:
                 record = preload[rownum*10:rownum*10+10]
@@ -114,7 +137,7 @@ class Database():
         return self.read_rownum(sensor, self.ts2rownum(ts))
         
     def read_rownum(self, sensor, rownum):
-        self.f.seek(SENSOR_LENGTH*sensor + 100_000 + rownum*10)
+        self.f.seek(SENSOR_LENGTH*sensor + METADATA_LENGTH + rownum*10)
         record = self.f.read(10)
         if record != b'\0\0\0\0\0\0\0\0\0\0':
             return (sensor, self.rownum2ts(rownum), record)
@@ -123,7 +146,7 @@ class Database():
         self.write_rownum(sensor, self.ts2rownum(ts), record10)
 
     def write_rownum(self, sensor, rownum, record10):
-        self.f.seek(SENSOR_LENGTH*sensor + 100_000 + rownum*10)
+        self.f.seek(SENSOR_LENGTH*sensor + METADATA_LENGTH + rownum*10)
         assert len(record10) == 10
         self.f.write(record10)
 

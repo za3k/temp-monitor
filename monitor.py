@@ -3,6 +3,7 @@ import json
 import paho.mqtt.client
 import queue
 import struct
+import sys
 
 class Monitor():
     def __init__(self, sensors, topic="zigbee2mqtt/Temperature/#"):
@@ -12,6 +13,7 @@ class Monitor():
         self.topic2sensor = {
             d["mqtt_topic"]: i for i,d in enumerate(sensors)
         }
+        #print(self.topic2sensor)
         self.topics = [topic]
         self.q = queue.Queue()
         pass
@@ -30,14 +32,22 @@ class Monitor():
     def message2record(self, message, ts=None):
         if ts is None:
             ts = datetime.datetime.now(datetime.UTC)
-        if message.topic not in self.topic2sensor: return
+        if message.topic not in self.topic2sensor:
+            print("Unknown topic: ", message.topic, file=sys.stderr)
+            return
         i = self.topic2sensor[message.topic]
         payload = json.loads(message.payload)
-        batt = payload["battery"]
+        if "battery" in payload:
+            batt = payload["battery"]
+        else:
+            batt = 0
         humid = payload["humidity"]
         linkquality = payload["linkquality"]
         temp = payload["temperature"]
-        volt = payload["voltage"]
+        if "voltage" in payload:
+            volt = payload["voltage"]
+        else:
+            volt = 0
         row = struct.pack("!BBhhHBB",
             1,
             self.sensors[i]["row_id"],
@@ -50,6 +60,7 @@ class Monitor():
         return (i, ts, row)
 
     def on_message(self, client, _, message):
+        #print("mqtt:", message.topic, file=sys.stderr)
         record = self.message2record(message)
         if record is None: return
         self.q.put(record)

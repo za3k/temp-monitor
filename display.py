@@ -3,18 +3,20 @@ import datetime
 import pytz
 import statistics
 import struct
+import sys
 import os.path
 
 EPOCH = datetime.datetime(2024, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
 TZ    = pytz.timezone('US/Eastern')
 
 # All rooms
+# These are row indices into SENSORS, not sensor numbers
 UPSTAIRS = [0, 3, 7, 8]
-BASEMENT = [5, 6]
+BASEMENT = [5, 6, 12]
 GARAGE   = [4]
 INSIDE   = UPSTAIRS + BASEMENT
-OUTSIDE  = [1, 2]
-DISPLAY_ORDER = [1, 2, 0, 3, 7, 8, 4, 6, 5]
+OUTSIDE  = [1, 10, 2]
+DISPLAY_ORDER = [1, 10, 2, 0, 3, 7, 8, 4, 6, 12, 11]
 
 GROUPS = {
     "outside": OUTSIDE,
@@ -48,10 +50,9 @@ class Display():
     def log(self, event):
         sensor, ts, record = event
         ts = self.readable_time(ts)
-        print("{}, Sensor #{}\n  {}\n  {}".format(ts, sensor+1, self.record2human(record), record))
+        print("{}, Sensor #{}\n  {}\n  {}".format(ts, sensor+1, self.record2human(record), list(record)), file=sys.stderr)
 
     def record2human(self, record):
-        struct.unpack
         version, row_id, humid, temp, volt, linkquality, batt = struct.unpack("!BBhhHBB", record)
         humid /= 100
         temp /= 100
@@ -174,7 +175,7 @@ class Display():
         for groupname in GROUPS.keys():
             hourly += "{: <11s}".format(groupname)
         hourly += "\n"
-        for hour in sorted(buckets):
+        for hour in sorted(buckets)[-13:-1]:
             hourly += "{}   ".format(self.readable_hour(hour))
             for groupname in GROUPS.keys():
                 hourly += "{}   ".format(format_temp(
